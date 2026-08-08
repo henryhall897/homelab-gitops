@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: factorio-settings
+  namespace: {{ .Values.namespace }}
+data:
+  server-settings.json: |
+    {
+      "name": "{{ .Values.server.name }}",
+      "description": "{{ .Values.server.description }}",
+      "tags": ["private","vpn-relay"],
+      "max_players": {{ .Values.server.maxPlayers }},
+      "visibility": { "public": false, "lan": false },
+      "game_password": "{{ .Values.server.gamePassword }}",
+      "require_user_verification": true,
+      "only_admins_can_pause_the_game": true,
+      "autosave_interval": 10,
+      "autosave_slots": 10,
+      "afk_autokick_interval": 15,
+      "non_blocking_saving": true,
+      "allow_commands": "admins-only",
+      "auto_pause": true,
+      "admins": []
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: factorio-whitelist
+  namespace: {{ .Values.namespace }}
+data:
+  server-whitelist.json: |
+    {{- toJson .Values.server.whitelist | nindent 4 }}

@@ -1,0 +1,132 @@
+# Number of Postgres pod replicas to run (should always be 1 for stateful DBs)
+replicaCount: 1
+
+image:
+  # Official postgres image (alpine variant for smaller footprint)
+  repository: postgres
+  # Version tag — pin this for reproducibility and security compliance
+  tag: "15-alpine"
+  # Avoid pulling if image already exists locally
+  pullPolicy: IfNotPresent
+
+# Optionally override generated Helm names for resources
+nameOverride: ""
+fullnameOverride: "wiki-postgres"
+
+serviceAccount:
+  # Whether to create a dedicated ServiceAccount
+  create: false
+  # Default SA auto-mount is disabled for minimal privilege
+  # automount: false
+
+# Extra metadata labels added to all Postgres pods
+podLabels:
+  app.kubernetes.io/part-of: wikijs-db
+
+# Applies to the entire Pod — sets group ownership and seccomp
+podSecurityContext:
+  # postgres container runs as UID/GID 999 by default
+  fsGroup: 999
+  # Ensures group ownership is only reset if mismatched
+  fsGroupChangePolicy: "Always"
+  # Enforce runtime default seccomp profile for syscall hardening
+  seccompProfile:
+    type: RuntimeDefault
+
+# Hardened container-level security configuration (Kyverno-compliant)
+securityContext:
+  runAsUser: 999
+  runAsGroup: 999
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+service:
+  # Cluster-internal only — Wiki.js will connect via ClusterIP
+  type: ClusterIP
+  # Default Postgres port
+  port: 5432
+
+persistence:
+  # Enable data persistence across restarts/upgrades
+  enabled: true
+
+  # Use an existing PVC instead of creating one
+  # This prevents data loss and reuses your current 'wiki-postgres-pvc'
+  existingClaim: wiki-postgres-pvc
+
+  # Mount path inside the container
+  mountPath: /var/lib/postgresql/data
+
+
+# Inject Postgres credentials from an existing Secret (wikidb-admin)
+env:
+  - name: POSTGRES_USER
+    valueFrom:
+      secretKeyRef:
+        name: wikidb-admin
+        key: DB_USER
+  - name: POSTGRES_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: wikidb-admin
+        key: DB_PASS
+  - name: POSTGRES_DB
+    valueFrom:
+      secretKeyRef:
+        name: wikidb-admin
+        key: DB_NAME
+
+# Prevent noisy-neighbor issues and define predictable resource footprint
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1
+    memory: 1Gi
+
+# Ensures the DB is responding on TCP 5432
+livenessProbe:
+  tcpSocket:
+    port: 5432
+  initialDelaySeconds: 20
+  periodSeconds: 10
+
+# Waits until Postgres accepts connections before marking pod ready
+readinessProbe:
+  exec:
+    command: ["pg_isready", "-U", "wikijs"]
+  initialDelaySeconds: 10
+  periodSeconds: 5
+
+# Optional node selector for scheduling DB pods on specific nodes
+nodeSelector:
+  db: "true"
+
+# Allow scheduling on control-plane nodes if needed (common for small clusters)
+tolerations:
+  - key: "node-role.kubernetes.io/master"
+    operator: "Exists"
+    effect: "NoSchedule"
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+    
+autoscaling:
+ enabled: false
+
+volumeMounts:
+  - name: data
+    mountPath: /var/lib/postgresql/data
+  - name: run
+    mountPath: /var/run/postgresql
+
+volumes:
+  - name: data
+    persistentVolumeClaim:
+      claimName: wiki-postgres-pvc
+  - name: run
+    emptyDir: {}

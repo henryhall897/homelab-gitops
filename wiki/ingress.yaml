@@ -1,0 +1,19 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: wikijs
+  namespace: wiki
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`wiki.henryhalldev.com`)
+      services:
+        - name: wikijs
+          port: 80
+      middlewares:
+        - name: add-forwarded-headers
+  tls:
+    certResolver: letsencrypt
+

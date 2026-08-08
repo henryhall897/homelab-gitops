@@ -1,0 +1,30 @@
+apiVersion: kyverno.io/v2
+kind: ClusterPolicy
+metadata:
+  name: verify-trivy-attestation
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-trivy-attestation
+      match:
+        any:
+          - resources:
+              kinds: ["Pod","Deployment","StatefulSet","DaemonSet","Job","CronJob"]
+      verifyImages:
+        - imageReferences:
+            - "*"
+          attestors:
+            - entries:
+                - keys:
+                    secret:
+                      name: cosign-pub
+                      namespace: kyverno
+          attestations:
+            - predicateType: https://cosign.sigstore.dev/attestation/vuln/v1
+              conditions:
+                all:
+                  # Example CEL: ensure 0 HIGH/CRITICAL (adjust to your attestation schema)
+                  - key: "int(object.summary.highCount) + int(object.summary.criticalCount)"
+                    operator: Equals
+                    value: 0

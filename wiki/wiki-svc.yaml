@@ -1,0 +1,200 @@
+# --- PVC for /wiki/data ---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wikijs-data
+  namespace: wiki
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi
+---
+# --- Secret for SSH Key (create this separately) ---
+# kubectl -n wiki create secret generic wikijs-ssh-key \
+#   --from-file=id_ed25519=~/deploy_key
+---
+# --- Service (ClusterIP, internal only for Traefik ingress) ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wikijs
+  namespace: wiki
+  labels:
+    app: wikijs
+spec:
+  type: ClusterIP
+  selector:
+    app: wikijs
+  ports:
+    - name: http
+      port: 80
+      targetPort: 3000
+---
+# --- Deployment ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wikijs
+  namespace: wiki
+  labels:
+    app: wikijs
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: wikijs
+  template:
+    metadata:
+      labels:
+        app: wikijs
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      nodeSelector:
+        wikijs-app: "true"
+      initContainers:
+        # --- 1. prepare-ssh: copy SSH key + known_hosts to writable location ---
+      - name: prepare-ssh
+        image: docker.io/bitnami/git@sha256:677b4d9e5aa1d6ede2efb40aa7770460325b034fa6075770d3dd483331d94139
+        command:
+          - bash
+          - -c
+          - |
+            set -eux
+            mkdir -p /home/node/.ssh
+            cp /secrets/id_ed25519 /home/node/.ssh/id_ed25519
+            chmod 600 /home/node/.ssh/id_ed25519
+            ssh-keyscan github.com > /home/node/.ssh/known_hosts
+            chmod 644 /home/node/.ssh/known_hosts
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          capabilities: { drop: ["ALL"] }
+        resources:
+          requests:
+            cpu: "10m"
+            memory: "32Mi"
+          limits:
+            cpu: "100m"
+            memory: "128Mi"
+        volumeMounts:
+          - name: ssh-key
+            mountPath: /secrets
+            readOnly: true
+          - name: ssh-home
+            mountPath: /home/node/.ssh
+
+      containers:
+        - name: wikijs
+          image: docker.io/requarks/wiki@sha256:1eaa2de751c2925871a95a02e0ddbdd5c48bf2e016653b2e4a8f0c646cc4ff83
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          env:
+            - name: APP_URL
+              value: "https://wiki.henryhalldev.com"
+            - name: TRUST_PROXY
+              value: "true"
+            - name: LOG_LEVEL
+              value: debug
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "3000"
+            - name: DB_TYPE
+              value: postgres
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: wikidb-admin
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: wikidb-admin
+                  key: DB_PORT
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: wikidb-admin
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: wikidb-admin
+                  key: DB_PASS
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: wikidb-admin
+                  key: DB_NAME
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: data
+              mountPath: /wiki/data
+            - name: ssh-home
+              mountPath: /home/node/.ssh
+              readOnly: false
+          securityContext:
+            runAsNonRoot: true
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            privileged: false
+            capabilities:
+              drop: ["ALL"]
+          terminationMessagePolicy: FallbackToLogsOnError
+          startupProbe:
+            httpGet:
+              path: /
+              port: 3000
+            failureThreshold: 60
+            periodSeconds: 5
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1"
+              memory: "1Gi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: data
+          persistentVolumeClaim:
+            claimName: wikijs-data
+        - name: ssh-key
+          secret:
+            secretName: wikijs-ssh-key
+        - name: ssh-home
+          emptyDir: {}

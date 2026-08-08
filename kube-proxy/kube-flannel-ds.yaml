@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kube-flannel-ds
+  namespace: kube-flannel
+  labels:
+    app: flannel
+    k8s-app: flannel
+    tier: node
+spec:
+  selector:
+    matchLabels:
+      app: flannel
+  template:
+    metadata:
+      labels:
+        app: flannel
+        tier: node
+    spec:
+      hostNetwork: true
+      serviceAccountName: flannel
+      priorityClassName: system-node-critical
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+      containers:
+        - name: kube-flannel
+          image: docker.io/flannel/flannel:v0.25.3
+          command:
+            - /opt/bin/flanneld
+          args:
+            - --iface=wg0
+            - --backend-type=host-gw
+            - --ip-masq
+            - --kube-subnet-mgr
+            - --net-config-path=/etc/kube-flannel/net-conf.json
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: PUBLIC_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: EVENT_QUEUE_DEPTH
+              value: "5000"
+            - name: FLANNELD_IFACE
+              value: wg0
+          resources:
+            requests:
+              cpu: 100m
+              memory: 50Mi
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["NET_ADMIN", "NET_RAW"]
+          volumeMounts:
+            - name: run
+              mountPath: /run/flannel
+            - name: flannel-cfg
+              mountPath: /etc/kube-flannel/
+            - name: xtables-lock
+              mountPath: /run/xtables.lock
+      initContainers:
+        - name: install-cni-plugin
+          image: docker.io/flannel/flannel-cni-plugin:v1.4.1-flannel1
+          command: ["cp"]
+          args: ["-f", "/flannel", "/opt/cni/bin/flannel"]
+          volumeMounts:
+            - name: cni-plugin
+              mountPath: /opt/cni/bin
+        - name: install-cni
+          image: docker.io/flannel/flannel:v0.25.3
+          command: ["cp"]
+          args: ["-f", "/etc/kube-flannel/cni-conf.json", "/etc/cni/net.d/10-flannel.conflist"]
+          volumeMounts:
+            - name: cni
+              mountPath: /etc/cni/net.d
+            - name: flannel-cfg
+              mountPath: /etc/kube-flannel/
+      volumes:
+        - name: run
+          hostPath:
+            path: /run/flannel
+        - name: cni-plugin
+          hostPath:
+            path: /opt/cni/bin
+        - name: cni
+          hostPath:
+            path: /etc/cni/net.d
+        - name: flannel-cfg
+          configMap:
+            name: kube-flannel-cfg
+        - name: xtables-lock
+          hostPath:
+            path: /run/xtables.lock
+            type: FileOrCreate

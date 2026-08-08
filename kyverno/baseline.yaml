@@ -1,0 +1,151 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: secure-pod-baseline
+  annotations:
+    # Either list controllers explicitly, or delete this line to use Kyverno's default autogen.
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,StatefulSet,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+
+  # 1a) No host namespaces (pod-level)
+  - name: disallow-host-namespaces
+    match:
+      any:
+        - resources:
+            kinds: ["Pod"]
+            namespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: NotIn
+                  values: ["kube-system","kube-public","kyverno","trivy-system"]
+    validate:
+      message: "hostNetwork/hostPID/hostIPC are not allowed."
+      pattern:
+        spec:
+          =(hostNetwork): false
+          =(hostPID): false
+          =(hostIPC): false
+
+  # 1b) No privileged / no privilege escalation (per container & initContainer)
+  - name: disallow-privileged-and-escalation
+    match:
+      any:
+        - resources:
+            kinds: ["Pod"]
+            namespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: NotIn
+                  values: ["kube-system","kube-public","kyverno","trivy-system"]
+    validate:
+      message: "Privileged and allowPrivilegeEscalation must be false."
+      foreach:
+        - list: "request.object.spec.containers[]"
+          pattern:
+            securityContext:
+              =(privileged): false
+              =(allowPrivilegeEscalation): false
+        - list: "request.object.spec.initContainers[]"
+          pattern:
+            securityContext:
+              =(privileged): false
+              =(allowPrivilegeEscalation): false
+
+  # 2a) Require seccomp + runAsNonRoot at pod level
+  - name: require-pod-seccomp-and-nonroot
+    match:
+      any:
+        - resources:
+            kinds: ["Pod"]
+            namespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: NotIn
+                  values: ["kube-system","kube-public","kyverno","trivy-system"]
+    validate:
+      message: "Pod must set seccompProfile RuntimeDefault and runAsNonRoot."
+      pattern:
+        spec:
+          securityContext:
+            =(runAsNonRoot): true
+            =(seccompProfile):
+              type: RuntimeDefault
+
+  # 2b) Require readOnlyRootFilesystem + runAsNonRoot on each container
+  - name: require-container-readonly-and-nonroot
+    match:
+      any:
+        - resources:
+            kinds: ["Pod"]
+            namespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: NotIn
+                  values: ["kube-system","kube-public","kyverno","trivy-system"]
+    validate:
+      message: "Containers must run as non-root and use readOnlyRootFilesystem."
+      foreach:
+        - list: "request.object.spec.containers[]"
+          pattern:
+            securityContext:
+              =(runAsNonRoot): true
+              =(readOnlyRootFilesystem): true
+        - list: "request.object.spec.initContainers[]"
+          pattern:
+            securityContext:
+              =(runAsNonRoot): true
+              =(readOnlyRootFilesystem): true
+
+  # 3a) Drop ALL capabilities + forbid hostPort on every container
+  - name: drop-all-caps-and-no-hostport
+    match:
+      any:
+        - resources:
+            kinds: ["Pod"]
+            namespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: NotIn
+                  values: ["kube-system","kube-public","kyverno","trivy-system"]
+    validate:
+      message: "Drop ALL capabilities and do not use hostPort."
+      foreach:
+        - list: "request.object.spec.containers[]"
+          pattern:
+            securityContext:
+              capabilities:
+                drop:
+                  - "ALL"
+                =(add): "[]"
+            =(ports):
+              - X(hostPort): "null"
+        - list: "request.object.spec.initContainers[]"
+          pattern:
+            securityContext:
+              capabilities:
+                drop:
+                  - "ALL"
+                =(add): "[]"
+            =(ports):
+              - X(hostPort): "null"
+
+  # 3b) Forbid hostPath volumes anywhere in the pod
+  - name: forbid-hostpath-volumes
+    match:
+      any:
+        - resources:
+            kinds: ["Pod"]
+            namespaceSelector:
+              matchExpressions:
+                - key: kubernetes.io/metadata.name
+                  operator: NotIn
+                  values: ["kube-system","kube-public","kyverno","trivy-system"]
+    validate:
+      message: "hostPath volumes are not allowed."
+      foreach:
+        - list: "request.object.spec.volumes[]"
+          pattern:
+            X(hostPath): "null"

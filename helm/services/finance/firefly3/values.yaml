@@ -1,0 +1,245 @@
+# Replica Count
+replicaCount: 1
+
+# Image
+image:
+  repository: fireflyiii/core
+  tag: "version-6.4.2"
+  digest: "sha256:730b9cd720af4f6c67140354bcc571d189281cf46dac3d917d2c238a92244c7d"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service Account
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+# Pod Annotations and Labels
+podAnnotations:
+  seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+
+podLabels:
+  app.kubernetes.io/part-of: firefly3
+
+# Pod Security Context
+podSecurityContext:
+  fsGroup: 33
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container Security Context
+securityContext:
+  runAsUser: 33
+  runAsGroup: 33
+  runAsNonRoot: true
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+# Lifecycle hook to verify oauth key files
+lifecycle:
+  postStart:
+    exec:
+      command:
+        - sh
+        - -c
+        - |
+          echo "[postStart] Listing oauth keys in storage..."
+          ls -l /var/www/html/storage/oauth-*.key || echo "[postStart] Keys missing!"
+          echo "[postStart] Showing partial contents of public key:"
+          head -n 5 /var/www/html/storage/oauth-public.key || echo "[postStart] Unable to read key"
+
+# Service
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress
+ingress:
+  enabled: true
+  className: traefik
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: letsencrypt
+    traefik.ingress.kubernetes.io/router.priority: "100"
+  hosts:
+    - host: firefly.henryhalldev.com
+      paths:
+        - path: /
+          pathType: Prefix
+  port:
+    name: http
+  tls:
+    - hosts:
+        - firefly.henryhalldev.com
+      secretName: firefly-tls
+
+
+
+# Environment Variables
+envFrom:
+  - secretRef:
+      name: firefly-secrets
+env:
+  - name: TRUSTED_PROXIES
+    value: "**"
+  - name: APP_URL
+    value: "https://firefly.henryhalldev.com"
+persistence:
+  enabled: true
+  name: data
+  accessMode: ReadWriteOnce
+  size: 128Mi
+  path: /data
+  annotations: {}
+  labels: {}
+  storageClass: ""
+
+
+# Writable overlay for Nginx
+extraVolumes:
+  - name: nginx-config
+    emptyDir: {}
+  - name: tmp
+    emptyDir: {}
+  - name: run-dir
+    emptyDir: {}
+  - name: laravel-cache
+    emptyDir: {}
+  - name: nginx-log
+    emptyDir: {}
+  - name: nginx-cache
+    emptyDir: {}
+  - name: oauth-keys
+    secret:
+      secretName: firefly-oauth-keys
+      defaultMode: 0444
+
+extraVolumeMounts:
+  - name: nginx-config
+    mountPath: /etc/nginx
+  - name: tmp
+    mountPath: /tmp
+  - name: run-dir
+    mountPath: /run
+  - name: laravel-cache
+    mountPath: /var/www/html/bootstrap/cache
+  - name: nginx-log
+    mountPath: /var/log/nginx
+  - name: nginx-cache
+    mountPath: /var/cache/nginx
+  - name: oauth-keys
+    mountPath: /var/www/html/storage/oauth-public.key
+    subPath: oauth-public.key
+    readOnly: true
+  - name: oauth-keys
+    mountPath: /var/www/html/storage/oauth-private.key
+    subPath: oauth-private.key
+    readOnly: true
+
+# Resource Requests and Limits
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Health Probes
+livenessProbe:
+  httpGet:
+    path: /register
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+readinessProbe:
+  httpGet:
+    path: /register
+    port: 8080
+  initialDelaySeconds: 15
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+# Autoscaling
+autoscaling:
+  enabled: false
+
+# Scheduling
+nodeSelector:
+  app: "finance"
+
+tolerations:
+  - key: "node-role.kubernetes.io/master"
+    operator: "Exists"
+    effect: "NoSchedule"
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+affinity: {}
+
+# Init containers
+initContainers:
+  # Copy default nginx config into writable volume
+  - name: init-nginx-config
+    image: fireflyiii/core:version-6.4.2
+    command:
+      - sh
+      - -c
+      - |
+        echo "Copying default nginx config..."
+        cp -r /etc/nginx/* /writable-nginx/
+    volumeMounts:
+      - name: nginx-config
+        mountPath: /writable-nginx
+
+  # Create Laravel storage structure (logs, cache, etc.)
+  - name: init-storage
+    image: busybox:1.36
+    command:
+      - sh
+      - -c
+      - |
+        echo "Initializing Laravel storage..."
+        mkdir -p /storage/logs
+        mkdir -p /storage/app
+        mkdir -p /storage/framework/{cache,sessions,views}
+        chown -R 33:33 /storage
+        chmod -R 700 /storage
+        echo "Storage initialized"
+    volumeMounts:
+      - name: storage
+        mountPath: /storage
+
+  # Set ownership of /run for UID 33
+  - name: fix-run-ownership
+    image: busybox:1.36
+    securityContext:
+      runAsUser: 0
+    command:
+      - sh
+      - -c
+      - |
+        echo "Fixing ownership of /run"
+        chown -R 33:33 /run
+    volumeMounts:
+      - name: run-dir
+        mountPath: /run
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: henrydhall117@gmail.com
+      storage: /data/acme.json
+      tlsChallenge: {}

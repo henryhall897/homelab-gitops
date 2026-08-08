@@ -1,0 +1,57 @@
+namespace: factorio
+
+image:
+  repository: factoriotools/factorio
+  tag: "2.0.72"
+  digest: "sha256:f7942281d7d3a54fd7e5b1aca57428fce4f035aabdb1cb798473f7b78778fb49"
+  pullPolicy: IfNotPresent
+
+nodeSelector:
+  role: gaming
+
+securityContext:
+  runAsUser: 845
+  runAsGroup: 845
+  fsGroup: 845
+  fsGroupChangePolicy: OnRootMismatch
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 4
+    memory: 4Gi
+
+rcon:
+  port: 27015
+  password: "G5hPMrY&6^c&TC63mDf&"
+
+server:
+  name: "Refined Realms [Factory Floor]"
+  description: "Private server via VPS relay (UDP) -> WireGuard -> devnode2"
+  maxPlayers: 6
+  gamePassword: "55472"
+  udpPort: 34197
+  pauseOnNoPlayers: true
+  whitelist:
+    - ButterscotchKing
+    - trunk_space
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: local-path
+
+service:
+  type: NodePort
+  externalTrafficPolicy: Local
+
+  gamePort: 34197
+  rconPort: 27015
+
+  nodePorts:
+    game: 30097   # UDP → Factorio game traffic
+    rcon: 31015    # leave null if you don’t want to expose RCON externally

@@ -1,0 +1,281 @@
+# =====================================================================
+# Traefik v3 hardened baseline (Kyverno-compliant + NodePort ingress)
+# =====================================================================
+
+image:
+  registry: docker.io
+  repository: traefik
+  tag: v3.2.1
+  pullPolicy: IfNotPresent
+
+# ---------------------------------------------------------------------
+# Security Hardening
+# ---------------------------------------------------------------------
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+
+# ---------------------------------------------------------------------
+# Deployment
+# ---------------------------------------------------------------------
+deployment:
+  enabled: true
+  kind: Deployment
+  replicas: 1
+  healthchecksPort: 8000
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  # Volumes
+  extraVolumeMounts:
+    - name: tmp
+      mountPath: /tmp
+    - name: run
+      mountPath: /var/run/traefik
+    - name: data
+      mountPath: /data
+  extraVolumes:
+    - name: tmp
+      emptyDir: {}
+    - name: run
+      emptyDir: {}
+    - name: data
+      emptyDir: {}
+
+  # Core Traefik args
+  additionalArguments:
+    - --entrypoints.web.address=:8000
+    - --entrypoints.websecure.address=:8443
+    - --entrypoints.web.http.redirections.entrypoint.to=websecure
+    - --entrypoints.web.http.redirections.entrypoint.scheme=https
+    - --entrypoints.websecure.http.tls.certresolver=letsencrypt
+    - --certificatesresolvers.letsencrypt.acme.email=henrydhall117@gmail.com
+    - --certificatesresolvers.letsencrypt.acme.storage=/data/acme.json
+    - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+    - --providers.kubernetesCRD
+    - --providers.kubernetesCRD.allowCrossNamespace=true
+    - --providers.kubernetesIngress
+    - --providers.kubernetesIngress.ingressClass=traefik
+    - --log.level=DEBUG
+    - --ping=true
+    - --ping.entryPoint=web
+    - --api.dashboard=true
+    - --api.insecure=true
+
+# ---------------------------------------------------------------------
+# NodePort Service
+# ---------------------------------------------------------------------
+service:
+  enabled: true
+  type: NodePort
+  externalTrafficPolicy: Cluster
+  single: false
+  additionalServices: {}
+  externalIPs: []
+  annotations: {}
+  labels: {}
+
+# ---------------------------------------------------------------------
+# Entrypoints / Ports
+# ---------------------------------------------------------------------
+ports:
+  web:
+    port: 8000
+    expose:
+      default: true
+    exposedPort: 80
+    nodePort: 30554
+    protocol: TCP
+
+  websecure:
+    port: 8443
+    expose:
+      default: true
+    exposedPort: 443
+    nodePort: 31387
+    protocol: TCP
+    tls:
+      enabled: true
+
+# ---------------------------------------------------------------------
+# Providers (Ingress / IngressRoute)
+# ---------------------------------------------------------------------
+providers:
+  kubernetesCRD:
+    enabled: true
+    allowCrossNamespace: true
+    namespaces: []
+  kubernetesIngress:
+    enabled: true
+    publishedService:
+      enabled: true
+    namespaces: []
+  kubernetesGateway:
+    enabled: false
+    namespaces: []
+  file:
+    enabled: false
+    watch: true
+    content: ""
+
+# ---------------------------------------------------------------------
+# Ingress Class
+# ---------------------------------------------------------------------
+ingressClass:
+  enabled: true
+  isDefaultClass: true
+  name: traefik
+
+# ---------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------
+logs:
+  general:
+    level: INFO
+  access:
+    enabled: true
+
+# ---------------------------------------------------------------------
+# RBAC & Service Account
+# ---------------------------------------------------------------------
+rbac:
+  enabled: true
+  namespaced: false
+
+serviceAccount:
+  name: traefik
+
+# ---------------------------------------------------------------------
+# Node Placement
+# ---------------------------------------------------------------------
+nodeSelector:
+  kubernetes.io/hostname: cluster1
+
+tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+# ---------------------------------------------------------------------
+# Hub (disabled but required for Helm templates)
+# ---------------------------------------------------------------------
+hub:
+  enabled: false
+  token: ""
+  namespaces: []
+  apimanagement:
+    enabled: false
+
+# ---------------------------------------------------------------------
+# OCI Metadata (disabled but required)
+# ---------------------------------------------------------------------
+oci_meta:
+  enabled: false
+  repo: traefik
+  images:
+    proxy:
+      image: traefik
+      tag: latest
+    hub:
+      image: traefik-hub
+      tag: latest
+
+# ---------------------------------------------------------------------
+# Global (required to prevent nil pointers)
+# ---------------------------------------------------------------------
+global:
+  azure:
+    enabled: false
+    images:
+      proxy:
+        registry: ""
+        image: ""
+        tag: ""
+      hub:
+        registry: ""
+        image: ""
+        tag: ""
+  aws:
+    enabled: false
+  gcp:
+    enabled: false
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+# ---------------------------------------------------------------------
+# PodSecurityPolicy (legacy stub)
+# ---------------------------------------------------------------------
+podSecurityPolicy:
+  enabled: false
+
+# ---------------------------------------------------------------------
+# Metrics / Prometheus (disabled but keys required)
+# ---------------------------------------------------------------------
+metrics:
+  prometheus:
+    enabled: false
+    addInternals: false
+    entryPoint: metrics
+    serviceMonitor:
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+  addInternals: false
+
+# ---------------------------------------------------------------------
+# Experimental Features (disabled)
+# ---------------------------------------------------------------------
+experimental:
+  abortOnPluginFailure: false
+  fastProxy:
+    enabled: false
+    debug: false
+
+# ---------------------------------------------------------------------
+# Persistence (disabled but required for Helm templates)
+# ---------------------------------------------------------------------
+persistence:
+  enabled: false
+  name: data
+  accessMode: ReadWriteOnce
+  size: 128Mi
+  path: /data
+  annotations: {}
+  labels: {}
+  storageClass: ""
+
+# ---------------------------------------------------------------------
+# Pod Disruption Budget
+# ---------------------------------------------------------------------
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  maxUnavailable: ""
+
+# ---------------------------------------------------------------------
+# Autoscaling
+# ---------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  metrics: []
+
+# ---------------------------------------------------------------------
+# Environment Vars
+# ---------------------------------------------------------------------
+env:
+  - name: KUBERNETES_SERVICE_HOST
+    value: "10.100.0.5"  # WireGuard IP of your control plane
+  - name: KUBERNETES_SERVICE_PORT
+    value: "6443"

@@ -1,0 +1,41 @@
+# wiki-postgres-storage.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: wiki-postgres-pv
+  labels: { app: wikijs }
+spec:
+  capacity: { storage: 20Gi }
+  volumeMode: Filesystem
+  accessModes: ["ReadWriteOnce"]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-ssd-wikidb
+  local:
+    path: /var/lib/postgres-wiki/pgdata
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values: ["cluster1"]
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata: { name: local-ssd-wikidb }
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wiki-postgres-pvc
+  namespace: wiki
+  labels: { app: wikijs }
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-ssd-wikidb
+  resources:
+    requests: { storage: 20Gi }
+  selector:
+    matchLabels: { app: wikijs }

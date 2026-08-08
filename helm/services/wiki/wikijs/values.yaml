@@ -1,0 +1,199 @@
+# Number of replicas for Wiki.js
+replicaCount: 1
+
+# ------------------------------------------------------------------------------
+# Container image
+# ------------------------------------------------------------------------------
+image:
+  repository: docker.io/requarks/wiki
+  # Use digest pinning or a version tag for reproducibility
+  tag: "2.5"
+  pullPolicy: IfNotPresent
+
+# ------------------------------------------------------------------------------
+# Service definition
+# ------------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+
+# ------------------------------------------------------------------------------
+# Persistent storage for /wiki/data
+# ------------------------------------------------------------------------------
+persistence:
+  enabled: true
+  existingClaim: wikijs-data
+  mountPath: /wiki/data
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: local-path
+  size: 5Gi
+
+# ------------------------------------------------------------------------------
+# SSH key secret for Git sync
+# ------------------------------------------------------------------------------
+ssh:
+  secretName: wikijs-ssh-key
+  mountPath: /home/node/.ssh
+
+# ------------------------------------------------------------------------------
+# Environment variables for Wiki.js
+# ------------------------------------------------------------------------------
+env:
+  APP_URL: "https://wiki.henryhalldev.com"
+  TRUST_PROXY: "true"
+  LOG_LEVEL: "debug"
+  HOST: "0.0.0.0"
+  PORT: "3000"
+  DB_TYPE: "postgres"
+  # All DB connection info comes from an existing Kubernetes secret
+  dbSecretName: wikidb-admin
+  dbHostKey: DB_HOST
+  dbPortKey: DB_PORT
+  dbUserKey: DB_USER
+  dbPassKey: DB_PASS
+  dbNameKey: DB_NAME
+  dbTypeKey: DB_TYPE
+
+# ------------------------------------------------------------------------------
+# Security context (Kyverno-compatible hardened setup)
+# ------------------------------------------------------------------------------
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  privileged: false
+  capabilities:
+    drop: ["ALL"]
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+
+# ------------------------------------------------------------------------------
+# Node scheduling
+# ------------------------------------------------------------------------------
+nodeSelector:
+  wikijs-app: "true"
+
+# ------------------------------------------------------------------------------
+# Probes
+# ------------------------------------------------------------------------------
+startupProbe:
+  httpGet:
+    path: /healthz
+    port: 3000
+  failureThreshold: 60
+  periodSeconds: 5
+  timeoutSeconds: 3
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 12
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 3000
+  initialDelaySeconds: 120
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 6
+
+# ------------------------------------------------------------------------------
+# Resource requests and limits
+# ------------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: "200m"
+    memory: "512Mi"
+  limits:
+    cpu: "1"
+    memory: "1Gi"
+
+# ------------------------------------------------------------------------------
+# Init container for preparing SSH (Git sync support)
+# ------------------------------------------------------------------------------
+initContainer:
+  image: docker.io/bitnami/git@sha256:677b4d9e5aa1d6ede2efb40aa7770460325b034fa6075770d3dd483331d94139
+  command:
+    - bash
+    - -c
+    - |
+      set -eux
+      mkdir -p /home/node/.ssh
+      cp /secrets/id_ed25519 /home/node/.ssh/id_ed25519
+      chmod 600 /home/node/.ssh/id_ed25519
+      ssh-keyscan github.com > /home/node/.ssh/known_hosts
+      chmod 644 /home/node/.ssh/known_hosts
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+  resources:
+    requests:
+      cpu: "10m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+
+# ------------------------------------------------------------------------------
+# Volume configuration (mapped automatically in deployment)
+# ------------------------------------------------------------------------------
+volumes:
+  - name: wiki-data
+    persistentVolumeClaim:
+      claimName: wikijs-data
+  - name: ssh-home
+    emptyDir: {}
+  - name: tmp
+    emptyDir: {}
+
+# ------------------------------------------------------------------------------
+# IngressRoute (Traefik)
+# ------------------------------------------------------------------------------
+ingressRoute:
+  enabled: true
+  host: "wiki.henryhalldev.com"
+  entryPoints:
+    - websecure
+  certResolver: letsencrypt
+  middlewares:
+    - name: add-forwarded-headers
+
+# ------------------------------------------------------------------------------
+# Autoscaling (disabled for single-instance Wiki.js)
+# ------------------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+
+serviceAccount:
+  create: false
+  name: ""
+
+volumeMounts:
+- name: wiki-data
+  mountPath: /wiki/data
+- name: ssh-home
+  mountPath: /home/node/.ssh
+- name: tmp
+  mountPath: /tmp

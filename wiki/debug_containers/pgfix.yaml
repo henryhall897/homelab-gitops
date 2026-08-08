@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pgfix
+  namespace: wiki
+spec:
+  restartPolicy: Never
+  containers:
+    - name: pgfix
+      image: postgres:15-alpine
+      command: ["/bin/sh"]
+      stdin: true
+      tty: true
+      volumeMounts:
+        - mountPath: /pgdata
+          name: data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: wiki-postgres-pvc

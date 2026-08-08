@@ -1,0 +1,82 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: image-hygiene
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: forbid-latest-tag
+      match:
+        any:
+          - resources:
+              kinds: ["Pod","Deployment","StatefulSet","DaemonSet","Job","CronJob"]
+      validate:
+        message: "Do not use the 'latest' tag."
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.object.spec.template.spec.containers[].image || request.object.spec.containers[].image }}"
+                operator: AnyIn
+                value:
+                  - "*:latest"
+
+    - name: require-digest-pinning
+      match:
+        any:
+          - resources:
+              kinds: ["Pod","Deployment","StatefulSet","DaemonSet","Job","CronJob"]
+      validate:
+        message: "Images must be pinned by digest (…@sha256:...)."
+        pattern:
+          spec:
+            containers:
+              - image: "*@sha256:*"
+            =(initContainers):
+              - image: "*@sha256:*"
+            =(ephemeralContainers):
+              - image: "*@sha256:*"
+
+    - name: allowed-registries
+      match:
+        any:
+          - resources:
+              kinds: ["Pod","Deployment","StatefulSet","DaemonSet","Job","CronJob"]
+      validate:
+        message: "Image registry not in allowlist."
+        anyPattern:
+          - spec:
+              containers:
+                - image: "ghcr.io/*"
+              =(initContainers):
+                - image: "ghcr.io/*"
+              =(ephemeralContainers):
+                - image: "ghcr.io/*"
+          - spec:
+              containers:
+                - image: "docker.io/*"
+              =(initContainers):
+                - image: "docker.io/*"
+              =(ephemeralContainers):
+                - image: "docker.io/*"
+          - spec:
+              containers:
+                - image: "quay.io/*"
+              =(initContainers):
+                - image: "quay.io/*"
+              =(ephemeralContainers):
+                - image: "quay.io/*"
+          - spec:
+              containers:
+                - image: "registry.k8s.io/*"
+              =(initContainers):
+                - image: "registry.k8s.io/*"
+              =(ephemeralContainers):
+                - image: "registry.k8s.io/*"
+          - spec:
+              containers:
+                - image: "docker.io/factoriotools/*"
+              =(initContainers):
+                - image: "docker.io/factoriotools/*"
+              =(ephemeralContainers):
+                - image: "docker.io/factoriotools/*"

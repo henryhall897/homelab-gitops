@@ -1,0 +1,305 @@
+install.go:225: 2025-10-18 14:52:55.898948825 +0000 UTC m=+0.026958306 [debug] Original chart version: ""
+install.go:242: 2025-10-18 14:52:55.898977108 +0000 UTC m=+0.026986589 [debug] CHART PATH: /home/dev/github-repos/cluster/helm/traefik
+
+---
+# Source: traefik/templates/deployment.yaml
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traefik
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+    helm.sh/chart: traefik-37.1.2
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+      app.kubernetes.io/instance: traefik-traefik
+  minReadySeconds: 0
+  template: 
+    metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: 
+      labels:
+        app.kubernetes.io/name: traefik
+        app.kubernetes.io/instance: traefik-traefik
+        helm.sh/chart: traefik-37.1.2
+        app.kubernetes.io/managed-by: Helm
+    spec:
+      serviceAccountName: traefik
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 60
+      hostNetwork: false
+      containers:
+      - image: docker.io/traefik:v3.2.1
+        imagePullPolicy: IfNotPresent
+        name: traefik
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+        readinessProbe:
+          httpGet:
+            path: /ping
+            port: 8000
+            scheme: HTTP
+          {}
+        livenessProbe:
+          httpGet:
+            path: /ping
+            port: 8000
+            scheme: HTTP
+          {}
+        lifecycle:
+        ports:
+        - name: web
+          containerPort: 8000
+          protocol: TCP
+        - name: websecure
+          containerPort: 8443
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+          - name: 
+            mountPath: 
+          - name: tmp
+            mountPath: /tmp
+        args:
+          - "--global.checkNewVersion=false"
+          - "--entryPoints.web.address=:8000/tcp"
+          - "--entryPoints.websecure.address=:8443/tcp"
+          - "--api.dashboard=true"
+          - "--ping=true"
+          - "--metrics.prometheus=true"
+          - "--metrics.prometheus.entrypoint=metrics"
+          - "--tracing.sampleRate=1"
+          - "--providers.kubernetescrd"
+          - "--providers.kubernetesingress"
+          - "--providers.kubernetesingress.ingressendpoint.publishedservice=traefik/traefik"
+          - "--entryPoints.websecure.http.tls=true"
+          - "--log.level=INFO"
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: USER
+            value: traefik
+          - name: GOMAXPROCS
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.cpu
+                divisor: '1'
+          - name: GOMEMLIMIT
+            value: "0MiB"
+      volumes:
+        - name: 
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      securityContext:
+        runAsGroup: 65532
+        runAsNonRoot: true
+        runAsUser: 65532
+
+---
+# Source: traefik/templates/rbac/serviceaccount.yaml
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: traefik
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+    helm.sh/chart: traefik-37.1.2
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+automountServiceAccountToken: false
+---
+# Source: traefik/templates/service.yaml
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+  namespace: traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+    helm.sh/chart: traefik-37.1.2
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+  ports:
+  - port: 80
+    name: web
+    targetPort: web
+    protocol: TCP
+    nodePort: 30554
+  - port: 443
+    name: websecure
+    targetPort: websecure
+    protocol: TCP
+    nodePort: 31387
+---
+# Source: traefik/templates/rbac/clusterrolebinding.yaml
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: traefik-traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+    helm.sh/chart: traefik-37.1.2
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: traefik-traefik
+subjects:
+  - kind: ServiceAccount
+    name: traefik
+    namespace: traefik
+---
+# Source: traefik/templates/ingressclass.yaml
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: "true"
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+    helm.sh/chart: traefik-37.1.2
+    app.kubernetes.io/managed-by: Helm
+  name: traefik
+spec:
+  controller: traefik.io/ingress-controller
+---
+# Source: traefik/templates/rbac/clusterrole.yaml
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: traefik-traefik
+  labels:
+    app.kubernetes.io/name: traefik
+    app.kubernetes.io/instance: traefik-traefik
+    helm.sh/chart: traefik-37.1.2
+    app.kubernetes.io/managed-by: Helm
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingressclasses
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - extensions
+      - networking.k8s.io
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+  - apiGroups:
+      - traefik.io
+    resources:
+      - ingressroutes
+      - ingressroutetcps
+      - ingressrouteudps
+      - middlewares
+      - middlewaretcps
+      - serverstransports
+      - serverstransporttcps
+      - tlsoptions
+      - tlsstores
+      - traefikservices
+    verbs:
+      - get
+      - list
+      - watch
+Error: YAML parse error on traefik/templates/deployment.yaml: error converting YAML to JSON: yaml: line 50: did not find expected key
+helm.go:92: 2025-10-18 14:52:55.913670903 +0000 UTC m=+0.041680395 [debug] error converting YAML to JSON: yaml: line 50: did not find expected key
+YAML parse error on traefik/templates/deployment.yaml
+helm.sh/helm/v3/pkg/releaseutil.(*manifestFile).sort
+	helm.sh/helm/v3/pkg/releaseutil/manifest_sorter.go:152
+helm.sh/helm/v3/pkg/releaseutil.SortManifests
+	helm.sh/helm/v3/pkg/releaseutil/manifest_sorter.go:104
+helm.sh/helm/v3/pkg/action.(*Configuration).renderResources
+	helm.sh/helm/v3/pkg/action/action.go:172
+helm.sh/helm/v3/pkg/action.(*Install).RunWithContext
+	helm.sh/helm/v3/pkg/action/install.go:317
+main.runInstall
+	helm.sh/helm/v3/cmd/helm/install.go:317
+main.newTemplateCmd.func2
+	helm.sh/helm/v3/cmd/helm/template.go:95
+github.com/spf13/cobra.(*Command).execute
+	github.com/spf13/cobra@v1.10.1/command.go:1015
+github.com/spf13/cobra.(*Command).ExecuteC
+	github.com/spf13/cobra@v1.10.1/command.go:1148
+github.com/spf13/cobra.(*Command).Execute
+	github.com/spf13/cobra@v1.10.1/command.go:1071
+main.main
+	helm.sh/helm/v3/cmd/helm/helm.go:91
+runtime.main
+	runtime/proc.go:283
+runtime.goexit
+	runtime/asm_amd64.s:1700

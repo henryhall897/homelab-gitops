@@ -1,0 +1,10 @@
+apiVersion: v2
+name: cert-manager
+description: A Helm chart that wraps the official Jetstack cert-manager chart
+type: application
+version: 0.1.0
+
+dependencies:
+  - name: cert-manager
+    version: v1.19.1   # Or whatever is current
+    repository: https://charts.jetstack.io

@@ -1,0 +1,164 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: factorio
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: factorio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: factorio
+  template:
+    metadata:
+      labels:
+        app: factorio
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+
+      securityContext:
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+        fsGroupChangePolicy: {{ .Values.securityContext.fsGroupChangePolicy }}
+
+      # ----------------------------
+      # Init Containers
+      # ----------------------------
+      initContainers:
+        - name: copy-factorio-bin
+          image: factoriotools/factorio@sha256:f7942281d7d3a54fd7e5b1aca57428fce4f035aabdb1cb798473f7b78778fb49
+          command:
+            - sh
+            - -c
+            - |
+              echo "[INIT] Copying Factorio binaries and data to writable volume..."
+              cp -r --no-preserve=ownership /opt/factorio/* /opt-target/
+              echo "[INIT] Done."
+          securityContext:
+            runAsUser: 845
+            runAsGroup: 845
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: opt-factorio
+              mountPath: /opt-target
+
+        # 3️⃣ Copy config.ini if needed
+        - name: init-config
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "[INIT] Ensuring /opt/factorio/config/config.ini exists..."
+              mkdir -p /opt/factorio/config
+              # Copy only if it doesn't already exist
+              if [ ! -f /opt/factorio/config/config.ini ]; then
+                cp /config/config.ini /opt/factorio/config/config.ini
+              else
+                echo "[INIT] config.ini already exists — skipping copy."
+              fi
+              echo "[INIT] Done."
+          securityContext:
+            runAsUser: 845
+            runAsGroup: 845
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: factorio-config-src
+              mountPath: /config
+            - name: opt-factorio
+              mountPath: /opt/factorio
+
+
+
+      # ----------------------------
+      # Main Container
+      # ----------------------------
+      containers:
+        - name: factorio
+          image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.server.udpPort }}
+              protocol: UDP
+            - containerPort: {{ .Values.rcon.port }}
+              protocol: TCP
+          env:
+            - name: SAVE_NAME
+              value: "server-world"
+            - name: LOAD_LATEST_SAVE
+              value: "false"
+            - name: RCON
+              value: "true"
+            - name: RCON_PORT
+              value: "{{ .Values.rcon.port }}"
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: factorio-rcon
+                  key: RCON_PASSWORD
+            - name: PAUSE_ON_NO_PLAYERS
+              value: "{{ .Values.server.pauseOnNoPlayers }}"
+          args:
+            - "--server-settings"
+            - "/factorio/settings/server-settings.json"
+            - "--port"
+            - "{{ .Values.server.udpPort }}"
+            - "--rcon-port"
+            - "{{ .Values.rcon.port }}"
+          volumeMounts:
+            - name: opt-factorio
+              mountPath: /opt/factorio
+            - name: factorio-data
+              mountPath: /factorio
+            - name: settings
+              mountPath: /factorio/settings
+              readOnly: true
+            - name: whitelist
+              mountPath: /factorio/server-whitelist.json
+              subPath: server-whitelist.json
+              readOnly: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ .Values.securityContext.runAsUser }}
+            runAsGroup: {{ .Values.securityContext.runAsGroup }}
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+
+      # ----------------------------
+      # Volumes
+      # ----------------------------
+      volumes:
+        - name: opt-factorio
+          emptyDir: {}
+        - name: opt-factorio-src
+          emptyDir: {}  
+        - name: factorio-data
+          persistentVolumeClaim:
+            claimName: factorio-data
+        - name: settings
+          configMap:
+            name: factorio-settings
+        - name: whitelist
+          configMap:
+            name: factorio-whitelist
+        - name: factorio-config-src
+          configMap:
+            name: factorio-config
+            items:
+              - key: config.ini
+                path: config.ini

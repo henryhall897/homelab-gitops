@@ -1,0 +1,22 @@
+{{- if .Values.ingressRoute.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ include "wikijs.fullname" . }}
+  namespace: wiki
+spec:
+  entryPoints:
+    {{- toYaml .Values.ingressRoute.entryPoints | nindent 4 }}
+  routes:
+    - kind: Rule
+      match: Host(`{{ .Values.ingressRoute.host }}`)
+      services:
+        - name: {{ include "wikijs.fullname" . }}
+          port: {{ .Values.service.port }}
+      {{- if .Values.ingressRoute.middlewares }}
+      middlewares:
+        {{- toYaml .Values.ingressRoute.middlewares | nindent 8 }}
+      {{- end }}
+  tls:
+    certResolver: {{ .Values.ingressRoute.certResolver }}
+{{- end }}

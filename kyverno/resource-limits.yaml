@@ -1,0 +1,54 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resources
+  annotations:
+    # Optional: explicit autogen. You can delete this line and rely on defaults.
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,StatefulSet,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: containers-require-resources
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]   # Let Kyverno autogenerate for controllers
+              namespaceSelector:
+                matchExpressions:
+                  - key: kubernetes.io/metadata.name
+                    operator: NotIn
+                    values: ["kube-system","kube-public","kyverno","trivy-system"]
+      validate:
+        message: "All containers must set CPU/Memory requests and limits."
+        foreach:
+          # app containers
+          - list: "request.object.spec.containers[]"
+            pattern:
+              resources:
+                requests:
+                  cpu: "?*"
+                  memory: "?*"
+                limits:
+                  cpu: "?*"
+                  memory: "?*"
+          # init containers (optional)
+          - list: "request.object.spec.initContainers[]"
+            pattern:
+              resources:
+                requests:
+                  cpu: "?*"
+                  memory: "?*"
+                limits:
+                  cpu: "?*"
+                  memory: "?*"
+          # ephemeral containers (optional, comment out if you don't use these)
+          - list: "request.object.spec.ephemeralContainers[]"
+            pattern:
+              resources:
+                requests:
+                  cpu: "?*"
+                  memory: "?*"
+                limits:
+                  cpu: "?*"
+                  memory: "?*"

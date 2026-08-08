@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: factorio-test
+  namespace: games
+  labels:
+    app: factorio-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: factorio-test
+  template:
+    metadata:
+      labels:
+        app: factorio-test
+    spec:
+      automountServiceAccountToken: false  # Kyverno compliance
+      hostNetwork: false
+      dnsPolicy: ClusterFirst
+
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+
+      initContainers:
+        - name: patch-config
+          image: factoriotools/factorio:2.0.69-rootless
+          command: ["sh", "-c"]
+          args:
+            - |
+              mkdir -p /mnt/config && \
+              cp -r /opt/factorio/config/* /mnt/config/ && \
+              sed -i '/write-data=/c\\write-data=\\/factorio/' /mnt/config/config.ini
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: patched-config
+              mountPath: /mnt/config
+
+      containers:
+        - name: factorio
+          image: factoriotools/factorio@sha256:649032f4044328926c94f52cb1a9687e94576a7836b3a8bc3316b1abaa44d953
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 34197
+              protocol: UDP
+            - containerPort: 27015
+              protocol: TCP
+          env:
+            - name: UPDATE_MODS_ON_START
+              value: "true"
+            - name: RCON
+              value: "true"
+            - name: RCON_PORT
+              value: "27015"
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: factorio-rcon
+                  key: RCON_PASSWORD
+            - name: PAUSE_ON_NO_PLAYERS
+              value: "true"
+          args:
+            - "--start-server-load-latest"
+            - "/factorio/saves/world.zip"
+            - "--server-settings"
+            - "/factorio/settings/server-settings.json"
+            - "--port"
+            - "34197"
+            - "--rcon-port"
+            - "27015"
+          volumeMounts:
+            - name: data
+              mountPath: /factorio
+            - name: settings
+              mountPath: /factorio/settings
+              readOnly: true
+            - name: whitelist
+              mountPath: /factorio/server-whitelist.json
+              subPath: server-whitelist.json
+              readOnly: true
+            - name: patched-config
+              mountPath: /opt/factorio/config
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "4"
+              memory: "3Gi"
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: factorio-data
+        - name: settings
+          configMap:
+            name: factorio-settings
+            items:
+              - key: server-settings.json
+                path: server-settings.json
+        - name: whitelist
+          configMap:
+            name: factorio-whitelist
+        - name: patched-config
+          emptyDir: {}

@@ -1,0 +1,29 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sa-token-hardening
+  annotations:
+    # optional: you can remove this and rely on default autogen
+    pod-policies.kyverno.io/autogen-controllers: "Deployment,StatefulSet,DaemonSet,Job,CronJob"
+spec:
+  validationFailureAction: Audit
+  background: true
+  rules:
+    - name: require-no-automount-by-default
+      match:
+        any:
+          - resources:
+              kinds: ["Pod"]  # autogen handles controllers
+      # Run this rule ONLY when the opt-in annotation is NOT "true"
+      preconditions:
+        all:
+          - key: "{{ request.object.metadata.annotations.\"security.henry/needs-token\" \
+                    || request.object.spec.template.metadata.annotations.\"security.henry/needs-token\" \
+                    || '' }}"
+            operator: NotEquals
+            value: "true"
+      validate:
+        message: "Do not auto-mount the ServiceAccount token. Opt in with annotation security.henry/needs-token: \"true\" only when the pod truly needs Kubernetes API access."
+        pattern:
+          spec:
+            automountServiceAccountToken: false

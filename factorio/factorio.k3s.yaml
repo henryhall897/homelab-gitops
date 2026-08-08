@@ -1,0 +1,204 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: games
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: factorio-rcon
+  namespace: games
+type: Opaque
+stringData:
+  RCON_PASSWORD: "G5hPMrY&6^c&TC63mDf&"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: factorio-settings
+  namespace: games
+data:
+  server-settings.json: |
+    {
+      "name": "Refined Realms [Factory Floor]",
+      "description": "Private server via VPS relay (UDP) -> WireGuard -> devnode2",
+      "tags": ["private", "vpn-relay"],
+      "max_players": 6,
+
+      "visibility": {
+        "public": false,
+        "lan": false
+      },
+
+      "username": "",
+      "password": "",
+      "token": "",
+
+      "game_password": "55472",
+
+      "require_user_verification": true,
+      "max_upload_in_kilobytes_per_second": 64,
+      "max_upload_slots": 1,
+
+      "ignore_player_limit_for_returning_players": false,
+      "only_admins_can_pause_the_game": true,
+      "autosave_interval": 10,
+      "autosave_slots": 10,
+      "afk_autokick_interval": 15,
+
+      "non_blocking_saving": true,
+      "allow_commands": "admins-only",
+      "auto_pause": true,
+      "admins": []
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: factorio-whitelist
+  namespace: games
+data:
+  server-whitelist.json: |
+    [
+      "ButterscotchKing",
+      "trunk_space"
+    ]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: factorio-data
+  namespace: games
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: local-path
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: factorio
+  namespace: games
+  labels:
+    app: factorio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: factorio
+  template:
+    metadata:
+      labels:
+        app: factorio
+    spec:
+      nodeSelector:
+        role: factorio
+
+      # Low-latency UDP: bind directly to node network (firewall controls exposure)
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+
+      # Ensure PVC is owned by runtime UID
+      initContainers:
+        - name: fix-perms
+          image: busybox:1.36
+          command: ["sh","-c","chown -R 10001:10001 /factorio"]
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /factorio
+
+      containers:
+        - name: factorio
+          image: factoriotools/factorio@sha256:sha256:649032f4044328926c94f52cb1a9687e94576a7836b3a8bc3316b1abaa44d953
+          imagePullPolicy: IfNotPresent
+
+          # hostNetwork exposes these on the node IP
+          ports:
+            - containerPort: 34197
+              protocol: UDP
+            - containerPort: 27015
+              protocol: TCP
+
+          env:
+            - name: SAVE_NAME
+              value: "world"
+            - name: UPDATE_MODS_ON_START
+              value: "true"
+            - name: RCON
+              value: "true"
+            - name: RCON_PORT
+              value: "27015"
+            - name: RCON_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: factorio-rcon
+                  key: RCON_PASSWORD
+            - name: PAUSE_ON_NO_PLAYERS
+              value: "true"
+
+          args:
+            - "--start-server"
+            - "/factorio/saves/world.zip"
+            - "--server-settings"
+            - "/factorio/settings/server-settings.json"
+            - "--port"
+            - "34197"
+            - "--rcon-port"
+            - "27015"
+
+          volumeMounts:
+            - name: data
+              mountPath: /factorio
+            - name: settings
+              mountPath: /factorio/settings
+              readOnly: true
+            - name: whitelist
+              mountPath: /factorio/server-whitelist.json
+              subPath: server-whitelist.json
+              readOnly: true
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "4"
+              memory: "3Gi"
+
+      securityContext:
+        fsGroup: 10001
+        fsGroupChangePolicy: OnRootMismatch
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: factorio-data
+        - name: settings
+          configMap:
+            name: factorio-settings
+            items:
+              - key: server-settings.json
+                path: server-settings.json
+        - name: whitelist
+          configMap:
+            name: factorio-whitelist

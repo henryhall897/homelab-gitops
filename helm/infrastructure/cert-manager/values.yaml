@@ -1,0 +1,12 @@
+installCRDs: true
+
+global:
+  leaderElection:
+    namespace: cert-manager
+
+ingressShim:
+  defaultIssuerName: letsencrypt-prod
+  defaultIssuerKind: ClusterIssuer
+
+prometheus:
+  enabled: false

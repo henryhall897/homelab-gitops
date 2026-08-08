@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: factorio-config
+  namespace: {{ .Values.namespace }}
+data:
+  config.ini: |
+    [path]
+    read-data=/opt/factorio/data
+    write-data=/factorio
+    [general]
+    locale=en
