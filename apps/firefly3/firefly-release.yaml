@@ -1,0 +1,44 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: firefly
+  namespace: firefly
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: firefly-iii-stack
+      version: "0.10.2"
+      sourceRef:
+        kind: HelmRepository
+        name: firefly-iii
+        namespace: firefly
+        
+  # 1. INLINE VALUES: Safe, non-sensitive configuration
+  values:
+    # Set up the database user, name, and storage
+    postgresql:
+      auth:
+        database: "firefly"
+        username: "firefly"
+      primary:
+        persistence:
+          enabled: true
+          storageClass: "local-path"
+          accessModes:
+            - ReadWriteOnce
+          size: 5Gi
+
+  # PVC Safety Annotations
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: PersistentVolumeClaim
+            patch: |
+              - op: add
+                path: /metadata/annotations/helm.sh~1resource-policy
+                value: keep
+              - op: add
+                path: /metadata/annotations/kustomize.toolkit.fluxcd.io~1prune
+                value: disabled

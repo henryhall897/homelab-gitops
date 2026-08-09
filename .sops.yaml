@@ -1,0 +1,5 @@
+creation_rules:
+  - path_regex: .*.yaml
+    encrypted_regex: ^(data|stringData)$
+    # OLD_KEY, NEW_KEY
+    age: 'age1hg2htg656ltg838gg7caspp68yhdxlvea985fva7k7p3u5sw5gkqxpttev'
