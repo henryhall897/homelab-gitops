@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 10m0s
-  path: ./firefly3
+  path: ./clusters/homelab/firefly3
   prune: true
   wait: true
   sourceRef:
