@@ -3,3 +3,14 @@ kind: Kustomization
 resources:
   - ../../../apps/flux
   - gotk-sync.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      namespace: flux-system
+      name: (source-controller|kustomize-controller|helm-controller|notification-controller)
+    patch: |
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          node-role.kubernetes.io/light-compute: "true"
