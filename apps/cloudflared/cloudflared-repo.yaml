@@ -1,7 +1,7 @@
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: cloudflare-helm
+  name: cloudflared-official
   namespace: flux-system
 spec:
   interval: 12h
