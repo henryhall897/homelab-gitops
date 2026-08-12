@@ -5,10 +5,19 @@ metadata:
   namespace: cloudflared
 spec:
   values:
-    replicas: 2
+    # 1. Replicas under controller
+    controllers:
+      main:
+        replicas: 2
 
-    cloudflare:
-      secretName: cloudflare-tunnel-token
+    # 2. Secret reference passed as an environment variable
+    env:
+      TUNNEL_TOKEN:
+        valueFrom:
+          secretKeyRef:
+            name: cloudflare-tunnel-token
+            key: TUNNEL_TOKEN
 
+    # 3. Node selector placed at top-level
     nodeSelector:
       node-role.kubernetes.io/ingress: "true"
