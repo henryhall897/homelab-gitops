@@ -7,4 +7,3 @@ resources:
 
 patches:
   - path: values-patch.yaml
-  - path: patch-deployment.yaml
