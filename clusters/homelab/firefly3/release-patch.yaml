@@ -10,6 +10,7 @@ spec:
       env:
         APP_URL: "https://firefly.henryhalldev.com"
         TZ: "America/New_York"
+        TRUSTED_PROXIES: "**"
 
     backup:
       persistence:

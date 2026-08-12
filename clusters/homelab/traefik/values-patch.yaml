@@ -22,6 +22,8 @@ spec:
         exposedPort: 80
         # Disabled automatic global redirect so cloudflared over HTTP works cleanly
         redirections: {}
+        forwardedHeaders:
+          insecure: true
       websecure:
         port: 8443
         expose:
