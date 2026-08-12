@@ -7,7 +7,7 @@ spec:
   values:
     # Pin to control plane node as per your current environment
     nodeSelector:
-      kubernetes.io/hostname: cluster1
+      node-role.kubernetes.io/ingress: "true"
 
     tolerations:
       - key: node-role.kubernetes.io/control-plane
