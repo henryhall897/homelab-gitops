@@ -5,9 +5,10 @@ metadata:
   namespace: cloudflared
 spec:
   values:
-    tunnel:
-      existingSecret: cloudflare-tunnel-token
-      existingSecretKey: TUNNEL_TOKEN
+    replicas: 2
+
+    cloudflare:
+      secretName: cloudflare-tunnel-token
+
     nodeSelector:
       node-role.kubernetes.io/ingress: "true"
-    replicaCount: 2
