@@ -3,8 +3,18 @@ kind: HelmRelease
 metadata:
   name: firefly
   namespace: firefly
-
 spec:
+  interval: 1h
+
+  # Remediation blocks so Flux auto-recovers from timeouts
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    force: true
+    remediation:
+      retries: 3
+
   values:
     firefly:
       env:
@@ -19,6 +29,13 @@ spec:
             paths:
               - path: /
                 pathType: ImplementationSpecific
+
+    # Corrected: Top-level under values & fixed spelling of 'persistence'
+    backup:
+      persistence:
+        enabled: true
+        storageClass: "local-path"
+        size: 5Gi
 
   valuesFrom:
     - kind: Secret
