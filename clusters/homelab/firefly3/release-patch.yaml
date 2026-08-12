@@ -4,23 +4,11 @@ metadata:
   name: firefly
   namespace: firefly
 spec:
-  interval: 1h
-
-  # Remediation blocks so Flux auto-recovers from timeouts
-  install:
-    remediation:
-      retries: 3
-  upgrade:
-    force: true
-    remediation:
-      retries: 3
-
   values:
     firefly:
       env:
         APP_URL: "https://firefly.henryhalldev.com"
         TZ: "America/New_York"
-
       ingress:
         enabled: true
         className: "traefik"
@@ -32,20 +20,47 @@ spec:
               - path: /
                 pathType: ImplementationSpecific
 
-    # Corrected: Top-level under values & fixed spelling of 'persistence'
     backup:
       persistence:
         enabled: true
         storageClass: "local-path"
         size: 5Gi
 
-  valuesFrom:
-    - kind: Secret
-      name: firefly-secrets
-      valuesKey: db-password
-      targetPath: postgresql.auth.postgresPassword
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: firefly-firefly-db-postgre-db
+            patch: |
+              - op: add
+                path: /spec/template/spec/nodeSelector
+                value:
+                  node-role.kubernetes.io/heavy-compute: "true"
 
-    - kind: Secret
-      name: firefly-secrets
-      valuesKey: app-key
-      targetPath: firefly.env.APP_KEY
+          - target:
+              kind: Deployment
+              name: firefly-firefly-iii
+            patch: |
+              - op: add
+                path: /spec/template/spec/nodeSelector
+                value:
+                  node-role.kubernetes.io/heavy-compute: "true"
+
+          - target:
+              kind: Deployment
+              name: firefly-importer
+            patch: |
+              - op: add
+                path: /spec/template/spec/nodeSelector
+                value:
+                  node-role.kubernetes.io/light-compute: "true"
+
+          - target:
+              kind: CronJob
+              name: firefly-firefly-db-backup
+            patch: |
+              - op: add
+                path: /spec/jobTemplate/spec/template/spec/nodeSelector
+                value:
+                  node-role.kubernetes.io/light-compute: "true"
