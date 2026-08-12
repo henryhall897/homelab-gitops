@@ -17,3 +17,17 @@ spec:
       limits:
         cpu: 100m
         memory: 128Mi
+
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: cloudflared-cloudflare-tunnel-remote
+            patch: |
+              - op: replace
+                path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+                value: cloudflared-cloudflare-tunnel-remote
+              - op: replace
+                path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/key
+                value: tunnelToken
