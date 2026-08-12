@@ -13,4 +13,4 @@ patches:
     target:
       kind: HelmRelease
       name: firefly
-  - path: node-selector.yaml
+  - path: node-selectors.yaml
