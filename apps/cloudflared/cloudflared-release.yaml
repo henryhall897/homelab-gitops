@@ -7,17 +7,9 @@ spec:
   interval: 30m
   chart:
     spec:
-      chart: cloudflared
-      version: "2.2.14"
+      chart: cloudflare-tunnel-remote
+      version: "0.1.2"
       sourceRef:
         kind: HelmRepository
-        name: community-charts
+        name: cloudflared-official
         namespace: flux-system
-  values:
-    resources:
-      requests:
-        cpu: 10m
-        memory: 32Mi
-      limits:
-        cpu: 100m
-        memory: 128Mi
