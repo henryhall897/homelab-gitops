@@ -1,7 +1,8 @@
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: apps
+  name: firefly3
   namespace: flux-system
 spec:
   interval: 10m0s
@@ -16,3 +17,23 @@ spec:
     provider: sops
     secretRef:
       name: sops-age
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: cloudflared
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  path: ./clusters/homelab/cloudflared
+  prune: true
+  wait: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  # This is the magic block that enables SOPS decryption for this cluster
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
+---

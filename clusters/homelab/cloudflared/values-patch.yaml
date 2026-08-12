@@ -1,0 +1,13 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: cloudflared
+  namespace: cloudflared
+spec:
+  values:
+    tunnel:
+      existingSecret: cloudflare-tunnel-token
+      existingSecretKey: TUNNEL_TOKEN
+    nodeSelector:
+      node-role.kubernetes.io/ingress: "true"
+    replicaCount: 2
