@@ -18,14 +18,14 @@ spec:
   values:
     firefly:
       env:
-        APP_URL: "https://firefly-v2.henryhalldev.com"
+        APP_URL: "https://firefly.henryhalldev.com"
         TZ: "America/New_York"
 
       ingress:
         enabled: true
         className: "traefik"
         hosts:
-          - host: firefly-v2.henryhalldev.com
+          - host: firefly.henryhalldev.com
             paths:
               - path: /
                 pathType: ImplementationSpecific
