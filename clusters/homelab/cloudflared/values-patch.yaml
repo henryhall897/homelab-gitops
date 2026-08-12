@@ -5,27 +5,22 @@ metadata:
   namespace: cloudflared
 spec:
   values:
-    # Disable DaemonSet mode and set replica count to 2
     replica:
       allNodes: false
       count: 2
 
-    # Inject the token from your existing secret as an environment variable
-    env:
-      - name: TUNNEL_TOKEN
-        valueFrom:
-          secretKeyRef:
-            name: cloudflare-tunnel-token
-            key: TUNNEL_TOKEN
-
-    # Pass the token parameter to the cloudflared binary
-    extraArgs:
-      - tunnel
-      - --no-autoupdate
-      - run
-      - --token
-      - $(TUNNEL_TOKEN)
-
-    # Node selector targeting your ingress node
     nodeSelector:
       node-role.kubernetes.io/ingress: "true"
+
+    tunnelSecrets:
+      existingConfigJsonFileSecret:
+        name: cloudflare-tunnel-token
+        key: credentials.json
+
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
