@@ -1,0 +1,33 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: traefik
+  namespace: traefik
+spec:
+  values:
+    # Pin to control plane node as per your current environment
+    nodeSelector:
+      kubernetes.io/hostname: cluster1
+
+    tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+    ports:
+      web:
+        port: 8000
+        expose:
+          default: true
+        exposedPort: 80
+        # Disabled automatic global redirect so cloudflared over HTTP works cleanly
+        redirections: {}
+      websecure:
+        port: 8443
+        expose:
+          default: true
+        exposedPort: 443
+
+    logs:
+      general:
+        level: INFO
