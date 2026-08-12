@@ -24,6 +24,8 @@ spec:
       ingress:
         enabled: true
         className: "traefik"
+        annotations:
+          traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
         hosts:
           - host: firefly.henryhalldev.com
             paths:
