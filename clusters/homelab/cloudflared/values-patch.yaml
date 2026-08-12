@@ -5,19 +5,27 @@ metadata:
   namespace: cloudflared
 spec:
   values:
-    # 1. Replicas under controller
-    controllers:
-      main:
-        replicas: 2
+    # Disable DaemonSet mode and set replica count to 2
+    replica:
+      allNodes: false
+      count: 2
 
-    # 2. Secret reference passed as an environment variable
+    # Inject the token from your existing secret as an environment variable
     env:
-      TUNNEL_TOKEN:
+      - name: TUNNEL_TOKEN
         valueFrom:
           secretKeyRef:
             name: cloudflare-tunnel-token
             key: TUNNEL_TOKEN
 
-    # 3. Node selector placed at top-level
+    # Pass the token parameter to the cloudflared binary
+    extraArgs:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - $(TUNNEL_TOKEN)
+
+    # Node selector targeting your ingress node
     nodeSelector:
       node-role.kubernetes.io/ingress: "true"
