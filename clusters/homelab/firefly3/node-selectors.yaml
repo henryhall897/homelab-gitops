@@ -1,0 +1,37 @@
+# Heavy compute nodes for DB and App
+- target:
+    kind: Deployment
+    name: firefly-firefly-db-postgre-db
+  patch: |-
+    - op: add
+      path: /spec/template/spec/nodeSelector
+      value:
+        node-role.kubernetes.io/heavy-compute: "true"
+
+- target:
+    kind: Deployment
+    name: firefly-firefly-iii
+  patch: |-
+    - op: add
+      path: /spec/template/spec/nodeSelector
+      value:
+        node-role.kubernetes.io/heavy-compute: "true"
+
+# Light compute nodes for Importer and Backup
+- target:
+    kind: Deployment
+    name: firefly-importer
+  patch: |-
+    - op: add
+      path: /spec/template/spec/nodeSelector
+      value:
+        node-role.kubernetes.io/light-compute: "true"
+
+- target:
+    kind: CronJob
+    name: firefly-firefly-db-backup
+  patch: |-
+    - op: add
+      path: /spec/jobTemplate/spec/template/spec/nodeSelector
+      value:
+        node-role.kubernetes.io/light-compute: "true"
