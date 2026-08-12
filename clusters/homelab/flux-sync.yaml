@@ -5,10 +5,11 @@ metadata:
   name: firefly3
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   path: ./clusters/homelab/firefly3
   prune: true
   wait: true
+  timeout: 5m0s
   sourceRef:
     kind: GitRepository
     name: flux-system
@@ -24,10 +25,11 @@ metadata:
   name: cloudflared
   namespace: flux-system
 spec:
-  interval: 10m0s
+  interval: 1m0s
   path: ./clusters/homelab/cloudflared
   prune: true
   wait: true
+  timeout: 5m0s
   sourceRef:
     kind: GitRepository
     name: flux-system
