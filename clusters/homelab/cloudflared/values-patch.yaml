@@ -7,6 +7,14 @@ spec:
   values:
     replicaCount: 2
 
+    # Map your existing SOPS secret directly into the chart's expected token env
+    env:
+      - name: TUNNEL_TOKEN
+        valueFrom:
+          secretKeyRef:
+            name: cloudflared
+            key: tunnelToken
+
     nodeSelector:
       node-role.kubernetes.io/ingress: "true"
 
