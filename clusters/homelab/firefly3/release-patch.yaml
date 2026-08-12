@@ -5,20 +5,11 @@ metadata:
   namespace: firefly
 spec:
   values:
-    firefly:
+    # Subchart wrapper key for core app env
+    firefly-iii:
       env:
         APP_URL: "https://firefly.henryhalldev.com"
         TZ: "America/New_York"
-      ingress:
-        enabled: true
-        className: "traefik"
-        annotations:
-          traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
-        hosts:
-          - host: firefly.henryhalldev.com
-            paths:
-              - path: /
-                pathType: ImplementationSpecific
 
     backup:
       persistence:

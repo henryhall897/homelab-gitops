@@ -5,6 +5,7 @@ namespace: firefly
 resources:
   - ../../../apps/firefly3
   - firefly-secrets.yaml
+  - ingress.yaml
 
 patches:
   - path: release-patch.yaml
