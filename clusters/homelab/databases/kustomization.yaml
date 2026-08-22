@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - namespace.yaml # defines namespace: database
   - cluster.yaml
+  - cluster-secret.enc.yaml
