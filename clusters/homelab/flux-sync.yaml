@@ -2,30 +2,12 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: flux-app
-  namespace: flux-system
-spec:
-  interval: 1m0s
-  path: ./clusters/homelab/flux-system
-  prune: true
-  wait: true
-  timeout: 5m0s
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
----
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: firefly3
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: flux-app
   interval: 5m0s
   path: ./clusters/homelab/firefly3
-  prune: true
+  prune: false
   wait: true
   timeout: 5m0s
   sourceRef:
@@ -43,8 +25,6 @@ metadata:
   name: cloudflared
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: flux-app
   interval: 5m0s
   path: ./clusters/homelab/cloudflared
   prune: true
@@ -65,8 +45,6 @@ metadata:
   name: traefik
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: flux-app
   interval: 5m0s
   path: ./clusters/homelab/traefik
   prune: true
@@ -82,8 +60,6 @@ metadata:
   name: cloudnative-pg
   namespace: flux-system
 spec:
-  dependsOn:
-    - name: flux-app
   interval: 5m0s
   path: ./clusters/homelab/cloudnative-pg
   prune: true
