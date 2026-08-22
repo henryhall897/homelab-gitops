@@ -3,6 +3,4 @@ kind: Kustomization
 
 resources:
   - ../../../apps/cloudnative-pg
-
-patches:
-  - path: values-patch.yaml
+  - cluster.yaml
