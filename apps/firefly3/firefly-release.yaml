@@ -8,26 +8,11 @@ spec:
   chart:
     spec:
       chart: firefly-iii
-      version: "0.10.1"
+      version: "1.10.1"
       sourceRef:
         kind: HelmRepository
         name: firefly-iii
-        namespace: firefly
-        
-  # 1. INLINE VALUES: Safe, non-sensitive configuration
-  values:
-    # Set up the database user, name, and storage
-    postgresql:
-      auth:
-        database: "firefly"
-        username: "firefly"
-      primary:
-        persistence:
-          enabled: true
-          storageClass: "local-path"
-          accessModes:
-            - ReadWriteOnce
-          size: 5Gi
+        namespace: flux-system
 
   # PVC Safety Annotations
   postRenderers:
