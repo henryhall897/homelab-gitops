@@ -4,32 +4,39 @@ metadata:
   name: firefly
   namespace: firefly
 spec:
+  chart:
+    spec:
+      chart: firefly-iii
+      version: "1.10.1"
+      sourceRef:
+        kind: HelmRepository
+        name: firefly-iii
+        namespace: flux-system
   values:
-    # Subchart wrapper key for core app env
-    firefly-iii:
-      env:
-        APP_URL: "https://firefly.henryhalldev.com"
-        TZ: "America/New_York"
-        TRUSTED_PROXIES: "**"
-
-    backup:
-      persistence:
-        enabled: true
-        storageClass: "local-path"
-        size: 5Gi
+    env:
+      APP_URL: "https://firefly.henryhalldev.com"
+      TZ: "America/New_York"
+      TRUSTED_PROXIES: "**"
+      DB_CONNECTION: "pgsql"
+      DB_HOST: "postgres-shared-rw.database.svc.cluster.local"
+      DB_PORT: "5432"
+      DB_DATABASE: "firefly"
+      DB_USERNAME: "firefly"
+      # Wire password from the SOPS secret
+      DB_PASSWORD:
+        valueFrom:
+          secretKeyRef:
+            name: firefly-secrets
+            key: db-password
+      APP_KEY:
+        valueFrom:
+          secretKeyRef:
+            name: firefly-secrets
+            key: app-key
 
   postRenderers:
     - kustomize:
         patches:
-          - target:
-              kind: Deployment
-              name: firefly-firefly-db-postgre-db
-            patch: |
-              - op: add
-                path: /spec/template/spec/nodeSelector
-                value:
-                  node-role.kubernetes.io/heavy-compute: "true"
-
           - target:
               kind: Deployment
               name: firefly-firefly-iii
@@ -38,21 +45,3 @@ spec:
                 path: /spec/template/spec/nodeSelector
                 value:
                   node-role.kubernetes.io/heavy-compute: "true"
-
-          - target:
-              kind: Deployment
-              name: firefly-importer
-            patch: |
-              - op: add
-                path: /spec/template/spec/nodeSelector
-                value:
-                  node-role.kubernetes.io/light-compute: "true"
-
-          - target:
-              kind: CronJob
-              name: firefly-firefly-db-backup
-            patch: |
-              - op: add
-                path: /spec/jobTemplate/spec/template/spec/nodeSelector
-                value:
-                  node-role.kubernetes.io/light-compute: "true"

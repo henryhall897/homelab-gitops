@@ -7,8 +7,8 @@ spec:
   interval: 1h
   chart:
     spec:
-      chart: firefly-iii-stack
-      version: "0.10.2"
+      chart: firefly-iii
+      version: "0.10.1"
       sourceRef:
         kind: HelmRepository
         name: firefly-iii

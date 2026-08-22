@@ -15,3 +15,5 @@ spec:
     initdb:
       database: firefly
       owner: firefly
+      secret:
+        name: firefly-db-credentials
