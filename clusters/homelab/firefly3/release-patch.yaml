@@ -44,4 +44,4 @@ spec:
     persistence:
       enabled: true
       storageClassName: "local-path"
-      storage: 5Gi
+      storage: 1Gi
