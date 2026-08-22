@@ -13,35 +13,35 @@ spec:
         name: firefly-iii
         namespace: flux-system
   values:
-    env:
-      APP_URL: "https://firefly.henryhalldev.com"
-      TZ: "America/New_York"
-      TRUSTED_PROXIES: "**"
-      DB_CONNECTION: "pgsql"
-      DB_HOST: "postgres-shared-rw.database.svc.cluster.local"
-      DB_PORT: "5432"
-      DB_DATABASE: "firefly"
-      DB_USERNAME: "firefly"
-      # Wire password from the SOPS secret
-      DB_PASSWORD:
-        valueFrom:
+    # 1. Native Node Selector
+    nodeSelector:
+      node-role.kubernetes.io/heavy-compute: "true"
+
+    # 2. Main Application Config
+    config:
+      env:
+        APP_URL: "https://firefly.henryhalldev.com"
+        TZ: "America/New_York"
+        TRUSTED_PROXIES: "**"
+        DB_CONNECTION: "pgsql"
+        DB_HOST: "postgres-shared-rw.database.svc.cluster.local"
+        DB_PORT: "5432"
+        DB_DATABASE: "firefly"
+        DB_USERNAME: "firefly"
+
+      # 3. Native Secret Injections via envValueFrom
+      envValueFrom:
+        DB_PASSWORD:
           secretKeyRef:
             name: firefly-secrets
             key: db-password
-      APP_KEY:
-        valueFrom:
+        APP_KEY:
           secretKeyRef:
             name: firefly-secrets
             key: app-key
 
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: Deployment
-              name: firefly-firefly-iii
-            patch: |
-              - op: add
-                path: /spec/template/spec/nodeSelector
-                value:
-                  node-role.kubernetes.io/heavy-compute: "true"
+    # 4. Persistence Settings
+    persistence:
+      enabled: true
+      storageClassName: "local-path"
+      storage: 5Gi
