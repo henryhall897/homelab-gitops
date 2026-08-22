@@ -1,0 +1,17 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: postgres-shared
+  namespace: database
+spec:
+  instances: 1
+  affinity:
+    nodeSelector:
+      node-role.kubernetes.io/heavy-compute: "true"
+  storage:
+    size: 30Gi
+    storageClass: local-path
+  bootstrap:
+    initdb:
+      database: firefly
+      owner: firefly
