@@ -2,26 +2,6 @@
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: firefly3
-  namespace: flux-system
-spec:
-  interval: 5m0s
-  path: ./clusters/homelab/firefly3
-  prune: false
-  wait: true
-  timeout: 5m0s
-  sourceRef:
-    kind: GitRepository
-    name: flux-system
-  # This is the magic block that enables SOPS decryption for this cluster
-  decryption:
-    provider: sops
-    secretRef:
-      name: sops-age
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1
-kind: Kustomization
-metadata:
   name: cloudflared
   namespace: flux-system
 spec:
@@ -84,3 +64,25 @@ spec:
   sourceRef:
     kind: GitRepository
     name: flux-system
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: firefly3
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: databases # Will not apply Firefly3 until database is healthy
+  interval: 5m0s
+  path: ./clusters/homelab/firefly3
+  prune: false
+  wait: true
+  timeout: 5m0s
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  # This is the magic block that enables SOPS decryption for this cluster
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age
