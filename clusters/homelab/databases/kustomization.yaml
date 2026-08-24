@@ -4,3 +4,4 @@ resources:
   - namespace.yaml # defines namespace: database
   - cluster.yaml
   - cluster-secret.enc.yaml
+  - retain-pv-policy.yaml

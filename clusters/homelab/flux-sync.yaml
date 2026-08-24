@@ -57,7 +57,7 @@ metadata:
 spec:
   interval: 5m
   path: ./clusters/homelab/databases
-  prune: true
+  prune: false
   wait: true
   dependsOn:
     - name: cloudnative-pg-operator # Will not apply Cluster until operator is healthy
@@ -75,7 +75,7 @@ spec:
     - name: databases # Will not apply Firefly3 until database is healthy
   interval: 5m0s
   path: ./clusters/homelab/firefly3
-  prune: false
+  prune: true
   wait: true
   timeout: 5m0s
   sourceRef:

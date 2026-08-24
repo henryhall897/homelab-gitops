@@ -10,7 +10,7 @@ spec:
       node-role.kubernetes.io/heavy-compute: "true"
   storage:
     size: 30Gi
-    storageClass: local-path
+    storageClass: retain-pv-policy
   bootstrap:
     initdb:
       database: firefly
