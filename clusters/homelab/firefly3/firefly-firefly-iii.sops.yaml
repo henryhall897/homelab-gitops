@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Secret
+metadata:
+    name: firefly-firefly-iii
+    namespace: firefly
+type: Opaque
+stringData:
+    db-password: ENC[AES256_GCM,data:nL+90XfP2L1h3lv4CrTnlj8UHpAYGDPF8cHJiw37,iv:9fkuyThsW5PHKa/8Ccm21Z0mXTmTz54hECLHEyM8i4o=,tag:jBZ+LtgQYKsVPJRJmTq2HQ==,type:str]
+    DB_PASSWORD: ENC[AES256_GCM,data:g3+tGCw7k/ehwWGKmtqIpKb+LMfVcH5PR8/IDgx/,iv:QiSMvTId3mUD9T3hSabeJYUfAL0OYAIi8PA6Meprv64=,tag:0eevfPKvTeIFunu9FybAug==,type:str]
+sops:
+    kms: []
+    gcp_kms: []
+    azure_kv: []
+    hc_vault: []
+    age:
+        - recipient: age1hg2htg656ltg838gg7caspp68yhdxlvea985fva7k7p3u5sw5gkqxpttev
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBLTGc4Umw1RHZJbkZmd05z
+            WVhWbEdLOUU3a2l3VEJVYldFOVBNQjNLaVY0CkwwcnhCUjUrWk5ZR2Z2ejNwMlhh
+            bEthTlAzbVVIbEE2azIyVGhrL3N0SDQKLS0tIFFENjVPZjNqaXlsQzNqSHVSbXBu
+            dE1BV0FZTUhNaVhQTGRkZWM0aGFTa1EKCvAtT6HldvRAMN320YYqjhEAhiQKNXgP
+            Kdx7Plnng3d5eOpfnZHDq0M4zWuc2AfuG7vhWak5Qf0UJfqlDVflTQ==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2026-08-28T02:16:03Z"
+    mac: ENC[AES256_GCM,data:XyKCcLDXRmevwQVtzYZdNz354BU2sadGKw4N9Rbm8DEmpjPFe+SG9whfhlDkeWEQ+9C9iCSkeyKgYMJMC/YQ12mtltflmtnFHrSQbv0X+m2Rfgl4qOJjh6QNCpqLdQRx7odmnUDZ8JtYzB9Uc9JM3f6cm2OMeJym0Y+HDsPiE+c=,iv:pkw1gAKZ55TFvlyh1/RbS7X+Y1FYYP5htx65wCY62Uc=,tag:TEPp0dBFqB+wb8Gz30BVmA==,type:str]
+    pgp: []
+    encrypted_regex: ^(data|stringData)$
+    version: 3.8.1

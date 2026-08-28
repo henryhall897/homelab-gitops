@@ -16,9 +16,9 @@ spec:
     # 1. Native Node Selector
     nodeSelector:
       node-role.kubernetes.io/heavy-compute: "true"
-
     # 2. Main Application Config
     config:
+      existingSecret: "firefly-firefly-iii"
       env:
         APP_URL: "https://firefly.henryhalldev.com"
         TZ: "America/New_York"

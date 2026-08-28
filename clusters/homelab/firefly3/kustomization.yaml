@@ -4,8 +4,8 @@ namespace: firefly
 
 resources:
   - ../../../apps/firefly3
-  - firefly-db-secret.sops.yaml
-  - firefly-app-key-secret.sops.yaml
+  - firefly-firefly-iii-app-key.sops.yaml
+  - firefly-firefly-iii.sops.yaml
   - ingress.yaml
 
 patches:
