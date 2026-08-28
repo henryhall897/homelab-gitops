@@ -29,17 +29,6 @@ spec:
         DB_DATABASE: "firefly"
         DB_USERNAME: "firefly"
 
-      # 3. Native Secret Injections via envValueFrom
-      envValueFrom:
-        DB_PASSWORD:
-          secretKeyRef:
-            name: firefly-secrets
-            key: db-password
-        APP_KEY:
-          secretKeyRef:
-            name: firefly-secrets
-            key: app-key
-
     # 4. Persistence Settings
     persistence:
       enabled: true
