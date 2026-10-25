@@ -10,7 +10,7 @@ spec:
       node-role.kubernetes.io/heavy-compute: "true"
     # 2. Main Application Config
     config:
-      existingSecret: "firefly-firefly-iii-app-key"
+      existingSecret: "firefly-app-secrets"
       env:
         APP_URL: "https://firefly.henryhalldev.com"
         TZ: "America/New_York"
