@@ -18,6 +18,10 @@ spec:
         cpu: 100m
         memory: 128Mi
 
+    image:
+      tag: "latest"
+      pullPolicy: Always
+
   postRenderers:
     - kustomize:
         patches:
