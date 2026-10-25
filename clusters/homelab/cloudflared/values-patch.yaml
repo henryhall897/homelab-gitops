@@ -24,6 +24,6 @@ spec:
 
   valuesFrom:
       - kind: Secret
-        name: cloudflared-cloudflare-tunnel-remote
+        name: cloudflared-token-secret
         valuesKey: tunnelToken
         targetPath: tunnelToken
