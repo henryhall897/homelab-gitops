@@ -22,16 +22,8 @@ spec:
       tag: "latest"
       pullPolicy: Always
 
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: Deployment
-              name: cloudflared-cloudflare-tunnel-remote
-            patch: |
-              - op: replace
-                path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
-                value: cloudflared-cloudflare-tunnel-remote
-              - op: replace
-                path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/key
-                value: tunnelToken
+  valuesFrom:
+      - kind: Secret
+        name: cloudflared-cloudflare-tunnel-remote
+        valuesKey: tunnelToken
+        targetPath: tunnelToken
