@@ -21,9 +21,3 @@ spec:
     image:
       tag: "latest"
       pullPolicy: Always
-
-  valuesFrom:
-      - kind: Secret
-        name: cloudflared-token-secret
-        valuesKey: tunnelToken
-        targetPath: tunnelToken
