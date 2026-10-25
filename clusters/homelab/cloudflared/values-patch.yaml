@@ -6,10 +6,8 @@ metadata:
 spec:
   values:
     replicaCount: 2
-
     nodeSelector:
       node-role.kubernetes.io/ingress: "true"
-
     resources:
       requests:
         cpu: 10m
@@ -17,7 +15,19 @@ spec:
       limits:
         cpu: 100m
         memory: 128Mi
-
     image:
       tag: "latest"
       pullPolicy: Always
+    # Provide a dummy string so the chart's template logic renders the env block
+    tunnelToken: "placeholder-to-force-env-render"
+
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: cloudflared-cloudflare-tunnel-remote
+            patch: |
+              - op: replace
+                path: /spec/template/spec/containers/0/env/0/valueFrom/secretKeyRef/name
+                value: cloudflared-token-secret
