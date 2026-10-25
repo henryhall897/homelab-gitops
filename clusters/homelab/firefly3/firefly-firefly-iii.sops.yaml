@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-    name: firefly-firefly-iii
+    name: firefly-app-secrets
     namespace: firefly
 type: Opaque
 stringData:
