@@ -13,3 +13,7 @@ spec:
         kind: HelmRepository
         name: cloudflared-official
         namespace: flux-system
+  values:
+    image:
+      tag: "latest"
+      pullPolicy: Always
