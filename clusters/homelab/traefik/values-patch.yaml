@@ -5,7 +5,6 @@ metadata:
   namespace: traefik
 spec:
   values:
-    # Pin to control plane node as per your current environment
     nodeSelector:
       node-role.kubernetes.io/ingress: "true"
 
@@ -20,8 +19,10 @@ spec:
         expose:
           default: true
         exposedPort: 80
-        # Disabled automatic global redirect so cloudflared over HTTP works cleanly
-        redirections: {}
+        # If you simply don't want redirects, omit `redirections` entirely.
+        # If using redirectTo in v42+:
+        # redirectTo:
+        #   port: websecure
         forwardedHeaders:
           insecure: true
       websecure:
@@ -30,6 +31,7 @@ spec:
           default: true
         exposedPort: 443
 
-    logs:
-      general:
-        level: INFO
+    # In v42+, logging was restructured. If you only want log level info,
+    # the chart uses `logs.general.level` or top-level `log.level` depending on sub-build:
+    log:
+      level: INFO
