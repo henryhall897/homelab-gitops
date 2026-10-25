@@ -4,14 +4,6 @@ metadata:
   name: firefly
   namespace: firefly
 spec:
-  chart:
-    spec:
-      chart: firefly-iii
-      version: "1.10.1"
-      sourceRef:
-        kind: HelmRepository
-        name: firefly-iii
-        namespace: flux-system
   values:
     # 1. Native Node Selector
     nodeSelector:
