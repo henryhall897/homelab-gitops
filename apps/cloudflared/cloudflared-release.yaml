@@ -5,7 +5,7 @@ metadata:
   namespace: cloudflared
 spec:
   interval: 30m
-  timeout: 3m
+  timeout: 1m
   chart:
     spec:
       chart: cloudflare-tunnel-remote
